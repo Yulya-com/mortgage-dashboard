@@ -1,13 +1,21 @@
-"""Светлая и тёмная темы: палитры, CSS интерфейса, шаблон Plotly."""
+"""Светлая и тёмная темы: палитры, CSS интерфейса, проверка контраста."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+# Пороги WCAG 2.1: обычный текст и элементы управления.
+AA_TEXT = 4.5
+AA_GRAPHICS = 3.0
+
 
 @dataclass(frozen=True)
 class Theme:
-    """Набор цветов и подписей для одной темы."""
+    """Набор цветов и подписей для одной темы.
+
+    Поля ``text``/``muted``/``control`` проверяются тестами на контраст:
+    они используются для текста и границ интерактивных элементов.
+    """
 
     key: str
     label: str
@@ -21,7 +29,9 @@ class Theme:
     background: str
     surface: str
     border: str
+    control: str
     grid: str
+    on_primary: str
 
 
 LIGHT = Theme(
@@ -30,14 +40,16 @@ LIGHT = Theme(
     icon="☀️",
     primary="#2563EB",
     primary_soft="rgba(37, 99, 235, 0.14)",
-    accent="#0E9F6E",
-    secondary="#F59E0B",
+    accent="#047857",
+    secondary="#B45309",
     text="#101828",
-    muted="#667085",
+    muted="#556070",
     background="#F4F6FB",
     surface="#FFFFFF",
-    border="#E4E7EC",
+    border="#D5DAE3",
+    control="#7B8798",
     grid="#EEF1F6",
+    on_primary="#FFFFFF",
 )
 
 DARK = Theme(
@@ -52,8 +64,10 @@ DARK = Theme(
     muted="#93A4BF",
     background="#0B1220",
     surface="#131C2E",
-    border="#243248",
+    border="#2F3E55",
+    control="#5B6E8C",
     grid="#1E2A3E",
+    on_primary="#0B1220",
 )
 
 THEMES: dict[str, Theme] = {theme.key: theme for theme in (LIGHT, DARK)}
@@ -63,6 +77,30 @@ DEFAULT_THEME = LIGHT.key
 def get_theme(key: str | None) -> Theme:
     """Возвращает тему по ключу, иначе светлую."""
     return THEMES.get(key or DEFAULT_THEME, LIGHT)
+
+
+def _srgb_to_linear(channel: int) -> float:
+    value = channel / 255
+    return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(hex_color: str) -> float:
+    """Относительная яркость цвета по WCAG 2.1."""
+    value = hex_color.lstrip("#")
+    red, green, blue = (int(value[index : index + 2], 16) for index in (0, 2, 4))
+    return (
+        0.2126 * _srgb_to_linear(red)
+        + 0.7152 * _srgb_to_linear(green)
+        + 0.0722 * _srgb_to_linear(blue)
+    )
+
+
+def contrast_ratio(first: str, second: str) -> float:
+    """Коэффициент контраста двух цветов: от 1.0 до 21.0."""
+    lighter, darker = sorted(
+        (relative_luminance(first), relative_luminance(second)), reverse=True
+    )
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 def css(theme: Theme) -> str:
@@ -75,7 +113,9 @@ def css(theme: Theme) -> str:
         --mc-text: {theme.text};
         --mc-muted: {theme.muted};
         --mc-border: {theme.border};
+        --mc-control: {theme.control};
         --mc-primary: {theme.primary};
+        --mc-on-primary: {theme.on_primary};
     }}
 
     .stApp,
@@ -115,6 +155,24 @@ def css(theme: Theme) -> str:
         color: var(--mc-muted) !important;
     }}
 
+    /* Переключатель темы */
+    [data-testid="stSidebar"] [role="radiogroup"] {{
+        gap: 6px;
+    }}
+
+    [data-testid="stSidebar"] [role="radiogroup"] label {{
+        background-color: var(--mc-bg);
+        border: 1px solid var(--mc-control);
+        border-radius: 10px;
+        padding: 4px 10px;
+        color: var(--mc-text) !important;
+        font-weight: 500;
+    }}
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:hover {{
+        border-color: var(--mc-primary);
+    }}
+
     /* Карточки показателей */
     [data-testid="stMetric"] {{
         background-color: var(--mc-surface) !important;
@@ -139,7 +197,7 @@ def css(theme: Theme) -> str:
         color: var(--mc-muted) !important;
     }}
 
-    /* Поля ввода и выпадающие списки */
+    /* Поля ввода: граница заметна в обеих темах */
     [data-testid="stNumberInput"] input,
     [data-testid="stTextInput"] input,
     [data-testid="stDateInput"] input,
@@ -148,13 +206,13 @@ def css(theme: Theme) -> str:
     [data-baseweb="select"] > div {{
         background-color: var(--mc-surface) !important;
         color: var(--mc-text) !important;
-        border-color: var(--mc-border) !important;
+        border-color: var(--mc-control) !important;
     }}
 
     [data-testid="stNumberInput"] button {{
         background-color: var(--mc-surface) !important;
         color: var(--mc-text) !important;
-        border-color: var(--mc-border) !important;
+        border-color: var(--mc-control) !important;
     }}
 
     /* Кнопки */
@@ -162,7 +220,7 @@ def css(theme: Theme) -> str:
     .stDownloadButton > button {{
         background-color: var(--mc-surface) !important;
         color: var(--mc-text) !important;
-        border: 1px solid var(--mc-border);
+        border: 1px solid var(--mc-control);
         border-radius: 10px;
         font-weight: 500;
     }}
@@ -173,19 +231,27 @@ def css(theme: Theme) -> str:
         color: var(--mc-primary) !important;
     }}
 
-    /* Вкладки */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 4px;
-        border-bottom: 1px solid var(--mc-border);
+    /* Переключатель разделов */
+    [data-testid="stButtonGroup"] button {{
+        background-color: var(--mc-surface) !important;
+        color: var(--mc-text) !important;
+        border-color: var(--mc-border) !important;
     }}
 
-    .stTabs [data-baseweb="tab"] {{
-        color: var(--mc-muted) !important;
-        font-weight: 500;
+    [data-testid="stButtonGroup"] button[aria-checked="true"],
+    [data-testid="stButtonGroup"] button[aria-pressed="true"],
+    [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] {{
+        background-color: var(--mc-primary) !important;
+        color: var(--mc-on-primary) !important;
+        border-color: var(--mc-primary) !important;
+        font-weight: 600;
     }}
 
-    .stTabs [aria-selected="true"] {{
-        color: var(--mc-primary) !important;
+    /* Раскрывающиеся блоки */
+    [data-testid="stExpander"] details {{
+        background-color: var(--mc-surface) !important;
+        border: 1px solid var(--mc-border) !important;
+        border-radius: 12px;
     }}
 
     /* Таблица */
@@ -194,13 +260,6 @@ def css(theme: Theme) -> str:
         border: 1px solid var(--mc-border);
         border-radius: 12px;
         overflow: hidden;
-    }}
-
-    /* Раскрывающиеся блоки */
-    [data-testid="stExpander"] details {{
-        background-color: var(--mc-surface) !important;
-        border: 1px solid var(--mc-border) !important;
-        border-radius: 12px;
     }}
 
     /* Сообщения */
