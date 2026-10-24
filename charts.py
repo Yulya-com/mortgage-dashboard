@@ -49,14 +49,14 @@ def _style_axes(fig: go.Figure, theme: Theme) -> None:
     """Сетка и подписи осей в цветах темы."""
     fig.update_xaxes(
         showgrid=False,
-        linecolor=theme.control,
+        linecolor=theme.border,
         tickfont={"color": theme.muted},
         zeroline=False,
     )
     fig.update_yaxes(
         showgrid=True,
         gridcolor=theme.grid,
-        linecolor=theme.control,
+        linecolor=theme.border,
         tickfont={"color": theme.muted},
         zeroline=False,
     )

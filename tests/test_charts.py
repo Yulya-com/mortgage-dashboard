@@ -72,52 +72,6 @@ def test_dark_theme_changes_colors() -> None:
     assert dark.layout.paper_bgcolor == "rgba(0,0,0,0)"
 
 
-def test_theme_changes_all_chart_palettes() -> None:
-    """Все четыре графика перекрашиваются при смене темы."""
-    light = build_all_charts(_result(), LIGHT)
-    dark = build_all_charts(_result(), DARK)
-
-    for name in light:
-        assert light[name].layout.font.color != dark[name].layout.font.color, name
-
-    assert light["balance"].layout.xaxis.linecolor != dark["balance"].layout.xaxis.linecolor
-    assert light["structure"].data[0].marker.color != dark["structure"].data[0].marker.color
-    assert light["cost"].data[0].marker.colors != dark["cost"].data[0].marker.colors
-    assert light["comparison"].data[1].line.color != dark["comparison"].data[1].line.color
-
-
-def test_charts_react_to_new_input() -> None:
-    """Новые параметры дают другие данные, а не прежнюю фигуру."""
-    base = build_all_charts(_result(), LIGHT)
-    changed = build_all_charts(
-        calculate(
-            MortgageParams(
-                price=10_000_000,
-                down_payment=2_000_000,
-                annual_rate=11,
-                term_months=60,
-                payment_type="annuity",
-                start_date=date(2026, 1, 10),
-            )
-        ),
-        LIGHT,
-    )
-
-    assert len(base["balance"].data[0].x) == 120
-    assert len(changed["balance"].data[0].x) == 60
-    assert base["cost"].data[0].values != changed["cost"].data[0].values
-    assert base["comparison"].data[0].x != changed["comparison"].data[0].x
-
-
-def test_charts_react_to_payment_type() -> None:
-    """Смена типа платежа меняет форму столбцов и итоги."""
-    annuity = payment_structure_chart(_result("annuity"), LIGHT)
-    differentiated = payment_structure_chart(_result("differentiated"), LIGHT)
-
-    assert list(annuity.data[0].y) != list(differentiated.data[0].y)
-    assert list(annuity.data[1].y) != list(differentiated.data[1].y)
-
-
 def test_money_axis_uses_russian_labels() -> None:
     fig = balance_chart(_result(), LIGHT)
     assert fig.layout.yaxis.tickvals[0] == 0

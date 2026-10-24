@@ -67,17 +67,6 @@ def init_state() -> None:
 def sidebar() -> None:
     """Панель параметров кредита и переключатель темы."""
     with st.sidebar:
-        st.markdown("### 🎨 Тема оформления")
-        st.radio(
-            "Оформление",
-            options=list(THEMES),
-            format_func=lambda key: f"{THEMES[key].icon} {THEMES[key].label}",
-            key="theme",
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-
-        st.divider()
         st.markdown("### 🏠 Параметры кредита")
 
         st.number_input(
@@ -132,6 +121,16 @@ def sidebar() -> None:
         if st.button("🔄 Сбросить параметры", width="stretch"):
             st.session_state["_reset_requested"] = True
             st.rerun()
+
+        st.divider()
+        st.markdown("#### 🎨 Тема")
+        st.radio(
+            "Оформление",
+            options=list(THEMES),
+            format_func=lambda key: f"{THEMES[key].icon} {THEMES[key].label}",
+            key="theme",
+            horizontal=True,
+        )
 
         st.caption("Все расчёты выполняются локально. Данные никуда не отправляются.")
 
@@ -230,22 +229,16 @@ def payment_summary(result: MortgageResult) -> None:
 
 
 def charts_tab(result: MortgageResult, theme) -> None:
-    """Вкладка с интерактивными графиками.
-
-    Ключи виджетам не задаются сознательно: идентификатор элемента
-    выводится из содержимого фигуры, поэтому при изменении входных данных
-    или темы график гарантированно перерисовывается и сбрасывает
-    сохранённый пользователем зум.
-    """
+    """Вкладка с интерактивными графиками."""
     figures = charts.build_all_charts(result, theme)
 
     left, right = st.columns([2, 1])
     with left:
-        st.plotly_chart(figures["balance"], width="stretch")
+        st.plotly_chart(figures["balance"], width="stretch", key="chart_balance")
     with right:
-        st.plotly_chart(figures["cost"], width="stretch")
+        st.plotly_chart(figures["cost"], width="stretch", key="chart_cost")
 
-    st.plotly_chart(figures["structure"], width="stretch")
+    st.plotly_chart(figures["structure"], width="stretch", key="chart_structure")
 
 
 def schedule_tab(result: MortgageResult) -> None:
@@ -321,7 +314,9 @@ def comparison_tab(result: MortgageResult, theme) -> None:
 
     st.dataframe(view, width="stretch", hide_index=True)
     st.plotly_chart(
-        charts.payment_type_comparison_chart(result, theme), width="stretch"
+        charts.payment_type_comparison_chart(result, theme),
+        width="stretch",
+        key="chart_comparison",
     )
 
     annuity = comparison.loc[comparison["payment_type"] == ANNUITY]
