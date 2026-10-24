@@ -1,0 +1,8 @@
+# Единые окончания строк в репозитории — LF, как на Linux-хостинге.
+# На Windows Git сам преобразует их в CRLF в рабочей копии.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.csv binary
